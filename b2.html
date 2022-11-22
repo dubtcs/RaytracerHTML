@@ -15,7 +15,7 @@
 
 <body style = "background-color: #000000;">
     <div class = "center">
-        <canvas id = "canvas" class = "border" width = 600 height = 600 style = "margin: auto;"></canvas>
+        <canvas id = "canvas" class = "border" width = 750 height = 750 style = "margin: auto;"></canvas>
     </div>
 </body>
 
@@ -55,16 +55,38 @@
     let purple = [87, 95, 207, 255];
     let orange = [255, 94, 87, 255];
     let mint = [11, 232, 129, 255]
-    
+
     // Vector math
     function Dot(v1,v2){
         return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
     }
     function Minus(v1, v2){
-        return [ v1[0] - v2[0], v1[1] - v2[1], v1[1] - v2[2] ];
+        return [ v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2] ];
     }
+    function Add(v1, v2){
+        return [ v1[0] + v2[0], v1[1] + v2[1], v1[1] + v2[2] ];
+    }
+    function Magnitude(v1){
+        return Math.sqrt(v1[0]^2 + v1[1]^2 + v1[2]^2);
+    }
+    // These parameters are all backwards and make no sense intuitively lol
     function MultConst(n, v1){
         return [ v1[0] * n, v1[1] * n, v1[2] * n ];
+    }
+    function AddConst(n, v1){
+        return [ v1[0] + n, v1[1] + n, v1[2] + n ];
+    }
+    function DivConst(n, v1){
+        return [ v1[0] / n, v1[1] / n, v1[2] / n ];
+    }
+
+    function ClampColor(c){
+        return [
+            Math.min(255, Math.max(0, c[0])),
+            Math.min(255, Math.max(0, c[1])),
+            Math.min(255, Math.max(0, c[2])),
+            255,
+        ];
     }
 
     // Object instance
@@ -76,11 +98,55 @@
         }
     }
 
-    let INSTANCES = [
-        new ball([0, 0, 20], 5, orange),
+    let AMBIENT = 1;
+    let POINT = 2;
+    let DIRECTIONAL = 3;
+    class light {
+        constructor(t, i, d){
+            this.type = t;
+            this.intensity = i;
+            this.source = d; // either position or direction
+        }
+    }
+
+    let instances = [
+        new ball([0, -5, 20], 5, orange),
         new ball([-2, 2, 5], 2, purple),
         new ball([2, 2, 5], 1, mint),
+        new ball([0,-5005,0], 5000, grey),
+        // clipping issue bugtest
+        new ball([0, 5, 10], 5, grey),
+        
     ];
+
+    let lights = [
+        new light(AMBIENT, 0.25),
+        new light(DIRECTIONAL, 0.25, [1, 4, 4] ),
+        new light(POINT, 0.5, [2, 1, 0])
+    ]
+
+    function MakeLighting(position, normal){
+        let i = 0;
+        for (let li of lights){
+            if (li.type == AMBIENT){
+                i += li.intensity;
+            } else {
+                let direction = null;
+                if (li.type == POINT) {
+                    // position and direction are both stored in "source" lol
+                    direction = Minus(li.source, position);
+                } else {
+                    direction = li.source;
+                }
+
+                let angle = Dot(normal, direction);
+                if (angle > 0) {
+                    i += li.intensity * angle / (Magnitude(normal) * Magnitude(direction));
+                }
+            }
+        }
+        return i;
+    }
 
     function GetIntersects(o, d, obj){
         let r = obj.r;
@@ -102,18 +168,39 @@
 
     function Ray(o, d, dMin, dMax){
         let leastDistance = Infinity;
-        let nColor = black;
-        for (let obj of INSTANCES){
+        let near = null;
+        for (let obj of instances){
             let p = GetIntersects(o, d, obj);
             if (InRange(p[0], dMin, dMax) && p[0] < leastDistance){
                 leastDistance = p[0];
-                nColor = obj.color;
-            } else if (InRange(p[1], dMin, dMax) && p[1] < leastDistance){
+                near = obj;
+            } 
+            if (InRange(p[1], dMin, dMax) && p[1] < leastDistance){
                 leastDistance = p[1];
-                nColor = obj.color;
+                near = obj;
             }
         }
-        return nColor;
+
+        if (near == null){
+            return black;
+        }
+
+        // DIFFUSE
+        let intersect = MultConst(leastDistance, d);
+        intersect = Add(intersect, o);
+        let normal = Minus(intersect, near.p);
+        normal = DivConst(Magnitude(normal), normal);
+
+        let amnt = MakeLighting(intersect, normal);
+        //let newColor = near.color;
+        let newColor = MultConst(amnt, near.color);
+        newColor[3] = 255; // Need this for alpha channel
+
+        newColor = ClampColor(newColor);
+
+        newColor = near.color;
+
+        return newColor;
     }
 
     function main(){
