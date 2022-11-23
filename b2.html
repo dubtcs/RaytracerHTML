@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 
+<!--Done in HTML and JS because it's easy to make a visual-->
+
 <head>
     <style>
         .center{
@@ -15,7 +17,7 @@
 
 <body style = "background-color: #000000;">
     <div class = "center">
-        <canvas id = "canvas" class = "border" width = 750 height = 750 style = "margin: auto;"></canvas>
+        <canvas id = "canvas" class = "border" width = 600 height = 600 style = "margin: auto;"></canvas>
     </div>
 </body>
 
@@ -67,7 +69,7 @@
         return [ v1[0] + v2[0], v1[1] + v2[1], v1[1] + v2[2] ];
     }
     function Magnitude(v1){
-        return Math.sqrt(v1[0]^2 + v1[1]^2 + v1[2]^2);
+        return Math.sqrt(v1[0]**2 + v1[1]**2 + v1[2]**2);
     }
     // These parameters are all backwards and make no sense intuitively lol
     function MultConst(n, v1){
@@ -114,15 +116,13 @@
         new ball([-2, 2, 5], 2, purple),
         new ball([2, 2, 5], 1, mint),
         new ball([0,-5005,0], 5000, grey),
-        // clipping issue bugtest
-        new ball([0, 5, 10], 5, grey),
-        
+        new ball([0, 0, 50], 10, blue)
     ];
 
     let lights = [
-        new light(AMBIENT, 0.25),
-        new light(DIRECTIONAL, 0.25, [1, 4, 4] ),
-        new light(POINT, 0.5, [2, 1, 0])
+        new light(AMBIENT, 0.2),
+        new light(DIRECTIONAL, 0.2, [1, 4, 4]),
+        new light(POINT, 0.6, [5,5,-5])
     ]
 
     function MakeLighting(position, normal){
@@ -145,7 +145,7 @@
                 }
             }
         }
-        return i;
+        return i = Math.max(0, Math.min(1, i));; // Clamp [0,1];
     }
 
     function GetIntersects(o, d, obj){
@@ -185,21 +185,26 @@
             return black;
         }
 
+        let newColor = near.color;
         // DIFFUSE
+
+        // intersection = d * leastDistance + origin
         let intersect = MultConst(leastDistance, d);
         intersect = Add(intersect, o);
+
         let normal = Minus(intersect, near.p);
-        normal = DivConst(Magnitude(normal), normal);
+        let mag = Magnitude(normal);
+        normal = MultConst(1/mag, normal);
 
-        let amnt = MakeLighting(intersect, normal);
-        //let newColor = near.color;
-        let newColor = MultConst(amnt, near.color);
-        newColor[3] = 255; // Need this for alpha channel
+        // let intersect = Add(o, MultConst(leastDistance, d)); // Find the point on the circle in 3d space ( CameraPosition + (LookVector * Distance) )
+        // let normal = Minus(intersect, near.p); // Normal vector pointing from the inside of the circle to the intersection point. Not a unit vector tho
+        // normal = DivConst(Magnitude(normal), normal); // NOW IT'S A UNIT VECTOR
 
-        newColor = ClampColor(newColor);
+        let harshness = MakeLighting(intersect, normal);
+        newColor = MultConst(harshness, newColor);
+        newColor[3] = 255;
 
-        newColor = near.color;
-
+        //newColor = near.color;
         return newColor;
     }
 
