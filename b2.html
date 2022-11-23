@@ -93,10 +93,11 @@
 
     // Object instance
     class ball {
-        constructor(p, r, c){
+        constructor(p, r, c, s){
             this.p = p;
             this.r = r;
             this.color = c;
+            this.s = s;
         }
     }
 
@@ -112,11 +113,11 @@
     }
 
     let instances = [
-        new ball([0, -5, 20], 5, orange),
-        new ball([-2, 2, 5], 2, purple),
-        new ball([2, 2, 5], 1, mint),
-        new ball([0,-5005,0], 5000, grey),
-        new ball([0, 0, 50], 10, blue)
+        new ball([0, -5, 20], 5, orange, 10),
+        new ball([-2, 2, 5], 2, purple, 500),
+        new ball([2, 2, 5], 1, mint, 100),
+        new ball([0,-5005,0], 5000, grey, 1),
+        new ball([0, 0, 50], 10, blue, 500)
     ];
 
     let lights = [
@@ -125,7 +126,7 @@
         new light(POINT, 0.6, [5,5,-5])
     ]
 
-    function MakeLighting(position, normal){
+    function MakeLighting(position, normal, lookVector, specularity){
         let i = 0;
         for (let li of lights){
             if (li.type == AMBIENT){
@@ -139,13 +140,30 @@
                     direction = li.source;
                 }
 
+                // Diffuse
                 let angle = Dot(normal, direction);
                 if (angle > 0) {
                     i += li.intensity * angle / (Magnitude(normal) * Magnitude(direction));
                 }
+
+                // Specular
+                if (specularity > 0) {
+                    //let lightDirection = 2 * normal * Dot(normal, direction) - direction;
+                    let lr = 2 * Dot(normal, direction);
+                    lr = MultConst(lr, normal);
+                    lr = Minus(lr, direction);
+                    let a2 = Dot(lr, lookVector);
+
+                    //let lightReflection = Minus( MultConst(2 * Dot(normal, direction), normal), direction);
+                    let angle2 = Dot(lr, lookVector);
+                    if (angle2 > 0) {
+                        i += li.intensity * Math.pow(angle2 / (Magnitude(lr) * Magnitude(lookVector)), specularity);
+                    }
+                }
+
             }
         }
-        return i = Math.max(0, Math.min(1, i));; // Clamp [0,1];
+        return i //= Math.max(0, Math.min(1, i)); // Clamp [0,1];
     }
 
     function GetIntersects(o, d, obj){
@@ -166,7 +184,7 @@
         return [p1, p2];
     }
 
-    function Ray(o, d, dMin, dMax){
+    function Ray(o, d, dMin, dMax){ // Origin, LookVector
         let leastDistance = Infinity;
         let near = null;
         for (let obj of instances){
@@ -186,9 +204,7 @@
         }
 
         let newColor = near.color;
-        // DIFFUSE
 
-        // intersection = d * leastDistance + origin
         let intersect = MultConst(leastDistance, d);
         intersect = Add(intersect, o);
 
@@ -196,14 +212,13 @@
         let mag = Magnitude(normal);
         normal = MultConst(1/mag, normal);
 
-        // let intersect = Add(o, MultConst(leastDistance, d)); // Find the point on the circle in 3d space ( CameraPosition + (LookVector * Distance) )
-        // let normal = Minus(intersect, near.p); // Normal vector pointing from the inside of the circle to the intersection point. Not a unit vector tho
-        // normal = DivConst(Magnitude(normal), normal); // NOW IT'S A UNIT VECTOR
+        // let intersect = Add(o, MultConst(leastDistance, d)); // Find the point on the circle in 3d space ( CameraPosition + (LookVector * Distance) ) // let normal = Minus(intersect, near.p); // Normal vector pointing from the inside of the circle to the intersection point. Not a unit vector tho// normal = DivConst(Magnitude(normal), normal); // NOW IT'S A UNIT VECTOR
 
-        let harshness = MakeLighting(intersect, normal);
+        let harshness = MakeLighting(intersect, normal, MultConst(-1, d), near.s);
         newColor = MultConst(harshness, newColor);
         newColor[3] = 255;
 
+        //newColor = ClampColor(newColor);
         //newColor = near.color;
         return newColor;
     }

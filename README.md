@@ -1,4 +1,6 @@
 
 # RT
 
-A simple raytracer. Made to understand fundamentals of raytracing
+A simple raytracer. Made to understand fundamentals of raytracing and lighting
+
+Includes diffuse shading
