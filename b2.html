@@ -112,59 +112,26 @@
         }
     }
 
+    // let instances = [
+    //     new ball([0, -5, 20], 5, orange, 10),
+    //     new ball([-2, 2, 5], 2, purple, 500),
+    //     new ball([2, 2, 5], 1, mint, 100),
+    //     new ball([0,-5005,0], 5000, grey, 1),
+    //     new ball([0, 50, 200], 10, blue, 500),
+    // ];
+
     let instances = [
-        new ball([0, -5, 20], 5, orange, 10),
-        new ball([-2, 2, 5], 2, purple, 500),
-        new ball([2, 2, 5], 1, mint, 100),
-        new ball([0,-5005,0], 5000, grey, 1),
-        new ball([0, 0, 50], 10, blue, 500)
+        new ball([0,-5, 20], 5, orange, 1000),
+        new ball([-7, 0, 22], 3, purple, 1000),
+        new ball([10, -2, 25], 4, mint, 1000),
+        new ball([0,-5005,0], 5000, grey, 0) // acts as a floor
     ];
 
     let lights = [
         new light(AMBIENT, 0.2),
         new light(DIRECTIONAL, 0.2, [1, 4, 4]),
-        new light(POINT, 0.6, [5,5,-5])
-    ]
-
-    function MakeLighting(position, normal, lookVector, specularity){
-        let i = 0;
-        for (let li of lights){
-            if (li.type == AMBIENT){
-                i += li.intensity;
-            } else {
-                let direction = null;
-                if (li.type == POINT) {
-                    // position and direction are both stored in "source" lol
-                    direction = Minus(li.source, position);
-                } else {
-                    direction = li.source;
-                }
-
-                // Diffuse
-                let angle = Dot(normal, direction);
-                if (angle > 0) {
-                    i += li.intensity * angle / (Magnitude(normal) * Magnitude(direction));
-                }
-
-                // Specular
-                if (specularity > 0) {
-                    //let lightDirection = 2 * normal * Dot(normal, direction) - direction;
-                    let lr = 2 * Dot(normal, direction);
-                    lr = MultConst(lr, normal);
-                    lr = Minus(lr, direction);
-                    let a2 = Dot(lr, lookVector);
-
-                    //let lightReflection = Minus( MultConst(2 * Dot(normal, direction), normal), direction);
-                    let angle2 = Dot(lr, lookVector);
-                    if (angle2 > 0) {
-                        i += li.intensity * Math.pow(angle2 / (Magnitude(lr) * Magnitude(lookVector)), specularity);
-                    }
-                }
-
-            }
-        }
-        return i //= Math.max(0, Math.min(1, i)); // Clamp [0,1];
-    }
+        new light(POINT, 0.6, [0, 5, -3])
+    ];
 
     function GetIntersects(o, d, obj){
         let r = obj.r;
@@ -184,36 +151,99 @@
         return [p1, p2];
     }
 
-    function Ray(o, d, dMin, dMax){ // Origin, LookVector
+    function GetNearestBounce(o, d, distanceMin, distanceMax){
         let leastDistance = Infinity;
         let near = null;
         for (let obj of instances){
             let p = GetIntersects(o, d, obj);
-            if (InRange(p[0], dMin, dMax) && p[0] < leastDistance){
+            if (InRange(p[0], distanceMin, distanceMax) && p[0] < leastDistance){
                 leastDistance = p[0];
                 near = obj;
             } 
-            if (InRange(p[1], dMin, dMax) && p[1] < leastDistance){
+            if (InRange(p[1], distanceMin, distanceMax) && p[1] < leastDistance){
                 leastDistance = p[1];
                 near = obj;
             }
         }
-
         if (near == null){
+            return null;
+        }
+        return [leastDistance, near];
+    }
+
+    function MakeLighting(position, normal, lookVector, specularity){
+        let i = 0;
+        for (let li of lights){
+            if (li.type == AMBIENT){
+                i += li.intensity;
+            } else {
+                let direction = null;
+                let maxLightDistance = Infinity;
+                if (li.type == POINT) {
+                    // position and direction are both stored in "source" lol
+                    direction = Minus(li.source, position);
+                    maxLightDistance = 1;
+                } else {
+                    direction = li.source;
+                }
+
+                // SHADOWS
+                let EPSILON = 0.001; // so the ray doesnt start from the surface. This puts it just barely away from it
+                //console.log(maxLightDistance);
+                let nearInfo = GetNearestBounce(position, direction, EPSILON, maxLightDistance);
+                if (nearInfo != null){
+                    continue; // Skip to the next light. This one should cast a shadow
+                }
+
+                /* DIFFUSE
+                Get the intensity of the light at the given angle, 
+                */
+                let angle = Dot(normal, direction);
+                if (angle > 0) {
+                    i += li.intensity * angle / (Magnitude(normal) * Magnitude(direction));
+                }
+
+                /* SPECULAR
+                Get the angle the light is hitting the surface, reflect it along the surface normal.
+                The intensity is the angle difference between the reflection and look vector
+                */
+                if (specularity > 0) {
+                    //let lightDirection = 2 * normal * Dot(normal, direction) - direction;
+                    let lr = 2 * Dot(normal, direction);
+                    lr = MultConst(lr, normal);
+                    lr = Minus(lr, direction);
+                    let a2 = Dot(lr, lookVector);
+
+                    //let lightReflection = Minus( MultConst(2 * Dot(normal, direction), normal), direction);
+                    let angle2 = Dot(lr, lookVector);
+                    if (angle2 > 0) {
+                        i += li.intensity * Math.pow(angle2 / (Magnitude(lr) * Magnitude(lookVector)), specularity);
+                    }
+                }
+
+            }
+        }
+        return i //= Math.max(0, Math.min(1, i)); // Clamp [0,1];
+    }
+
+    function Ray(o, d, dMin, dMax){ // Origin, LookVector
+        let nearInfo = GetNearestBounce(o, d, dMin, dMax);
+        if (nearInfo == null){
             return black;
         }
+        
+        let leastDistance = nearInfo[0];
+        let near = nearInfo[1];
 
         let newColor = near.color;
 
         let intersect = MultConst(leastDistance, d);
         intersect = Add(intersect, o);
-
         let normal = Minus(intersect, near.p);
         let mag = Magnitude(normal);
         normal = MultConst(1/mag, normal);
-
         // let intersect = Add(o, MultConst(leastDistance, d)); // Find the point on the circle in 3d space ( CameraPosition + (LookVector * Distance) ) // let normal = Minus(intersect, near.p); // Normal vector pointing from the inside of the circle to the intersection point. Not a unit vector tho// normal = DivConst(Magnitude(normal), normal); // NOW IT'S A UNIT VECTOR
-
+        
         let harshness = MakeLighting(intersect, normal, MultConst(-1, d), near.s);
         newColor = MultConst(harshness, newColor);
         newColor[3] = 255;
