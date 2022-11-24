@@ -182,7 +182,7 @@
                 let EPSILON = 0.001; // so the ray doesnt start from the surface. This puts it just barely away from it
                 let nearInfo = GetNearestBounce(position, direction, EPSILON, maxLightDistance);
                 if (nearInfo != null){
-                    //continue; // Skip to the next light. This one should cast a shadow
+                    continue; // Skip to the next light. This one should cast a shadow
                 }
 
                 /* DIFFUSE
