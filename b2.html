@@ -4,13 +4,32 @@
 
 <head>
     <style>
+        html * {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffffe0;
+        }
         .center{
             margin: auto;
             display: flex;
             align-items: center;
+            justify-content: center;
         }
         .border{
             border: 1px solid #555555;
+        }
+        .text{
+            color: #ffffe0;
+        }
+        .container{
+            background-color: #1a1a1a;
+            border-radius: 20px;
+            width:45%;
+        }
+        .small-input{
+            width: 5%;
+        }
+        input{
+            color:#1a1a1a
         }
     </style>
 </head>
@@ -18,6 +37,20 @@
 <body style = "background-color: #000000;">
     <div class = "center">
         <canvas id = "canvas" class = "border" width = 600 height = 600 style = "margin: auto;"></canvas>
+    </div>
+    <div class = "center">
+        <h1 class = "text">RaytracerHTML</h1>
+    </div>
+    <div class = "center">
+        <label for="camx">Camera X :</label>
+        <input class="small-input" type="number" id="camx" name="camx">
+    </div>
+    <div class = "center">
+        <label for="camy">Camera Y :</label>
+        <input class="small-input" type="number" id="camy" name="camy">
+    </div>
+    <div class="center">
+        <button style="color:#1a1a1a" onclick="SetCameraPosition()">Draw Scene</button>
     </div>
 </body>
 
@@ -243,8 +276,9 @@
         return newColor;
     }
 
+    let cameraPosition = [0,0,0];
+
     function main(){
-        let cameraPosition = [0, 0, 0];
         for (let x = -canvas.width/2; x < canvas.width/2; x++){
             for (let y = -canvas.height/2; y < canvas.height/2; y++){
                 let direction = CanvasToViewport(x, y);
@@ -254,5 +288,14 @@
         }
     }
     main();
-
+    
+    function SetCameraPosition()
+    {
+        let x = Number(document.getElementById("camx").value);
+        let y = Number(document.getElementById("camy").value);
+        cameraPosition = [x, y, 0];
+        console.log(cameraPosition);
+        main();
+    }
+    
 </script>
